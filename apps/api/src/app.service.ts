@@ -23,6 +23,7 @@ import type {
   GeneratedSuiteResponse,
   GitHubActionsWebhookPayload,
   JiraSyncRequest,
+  ProviderCapability,
   TestGenerationRequest,
   TestSuiteUpdateRequest
 } from "@sonofcotester/sdk";
@@ -52,6 +53,51 @@ export class AppService {
 
   async listProjects() {
     return listProjects();
+  }
+
+  listProviderCapabilities(): ProviderCapability[] {
+    const hasBrowserStackCreds = Boolean(
+      process.env.BROWSERSTACK_USERNAME && process.env.BROWSERSTACK_ACCESS_KEY
+    );
+
+    return [
+      {
+        provider: "playwright-local",
+        platform: "web",
+        mode: "local",
+        ready: true,
+        status: "ready",
+        summary: "Runs against the built-in local demo target and other reachable web apps.",
+        requirements: ["Playwright browser binaries", "reachable baseUrl"]
+      },
+      {
+        provider: "browserstack-web",
+        platform: "web",
+        mode: "cloud",
+        ready: hasBrowserStackCreds,
+        status: hasBrowserStackCreds ? "ready" : "configuration-required",
+        summary: "Cloud browser execution contract is wired and awaiting BrowserStack credentials.",
+        requirements: ["BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY"]
+      },
+      {
+        provider: "browserstack-mobile",
+        platform: "mobile",
+        mode: "cloud",
+        ready: hasBrowserStackCreds,
+        status: hasBrowserStackCreds ? "ready" : "configuration-required",
+        summary: "Mobile execution is shaped around BrowserStack-style Appium cloud sessions.",
+        requirements: ["BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY", "mobile app id or build artifact"]
+      },
+      {
+        provider: "custom-appium",
+        platform: "mobile",
+        mode: "custom",
+        ready: false,
+        status: "planned",
+        summary: "Reserved for self-hosted Appium or alternative device lab integration.",
+        requirements: ["Appium endpoint", "device lab capabilities", "app package reference"]
+      }
+    ];
   }
 
   async listSuites() {

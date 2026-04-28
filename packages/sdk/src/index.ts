@@ -188,3 +188,13 @@ export interface GeneratedSuiteResponse {
   suiteVersionId: string;
   draft: GeneratedTestSuiteDraft;
 }
+
+export interface ProviderCapability {
+  provider: ProviderName;
+  platform: TargetPlatform;
+  mode: "local" | "cloud" | "custom";
+  ready: boolean;
+  status: "ready" | "configuration-required" | "planned";
+  summary: string;
+  requirements: string[];
+}

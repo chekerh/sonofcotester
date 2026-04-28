@@ -129,6 +129,11 @@ export class AppController {
     return this.appService.listProjects();
   }
 
+  @Get("providers/capabilities")
+  listProviderCapabilities() {
+    return this.appService.listProviderCapabilities();
+  }
+
   @Get("health")
   health() {
     return { ok: true, service: "api" };

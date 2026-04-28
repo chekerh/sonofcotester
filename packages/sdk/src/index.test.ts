@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CanonicalTestCase, ExecutionRun, PersistedSuite } from "./index.js";
+import type { CanonicalTestCase, ExecutionRun, PersistedSuite, ProviderCapability } from "./index.js";
 
 describe("sdk contracts", () => {
   it("supports canonical test cases", () => {
@@ -62,5 +62,19 @@ describe("sdk contracts", () => {
     };
 
     expect(suite.versions[0]?.versionNumber).toBe(1);
+  });
+
+  it("supports provider capability summaries", () => {
+    const capability: ProviderCapability = {
+      provider: "browserstack-mobile",
+      platform: "mobile",
+      mode: "cloud",
+      ready: false,
+      status: "configuration-required",
+      summary: "Requires BrowserStack credentials",
+      requirements: ["BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY"]
+    };
+
+    expect(capability.platform).toBe("mobile");
   });
 });
