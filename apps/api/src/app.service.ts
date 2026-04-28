@@ -29,8 +29,7 @@ import type {
 
 type ExecutionJobPayload = {
   runId: string;
-  suiteVersionId: string;
-  provider: ExecutionRequest["provider"];
+  request: ExecutionRequest;
 };
 
 @Injectable()
@@ -91,8 +90,7 @@ export class AppService {
       "run-suite",
       {
         runId: run.id,
-        suiteVersionId: input.suiteVersionId,
-        provider: input.provider
+        request: input
       },
       {
         attempts: 2,

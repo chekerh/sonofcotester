@@ -18,7 +18,8 @@ AI-powered software testing platform scaffold inspired by CoTester.
 docker compose up -d
 pnpm install
 pnpm prisma:generate
-pnpm dev
+pnpm db:push
+pnpm dev:alpha
 ```
 
 ## Included v1 Vertical Slice
@@ -36,3 +37,4 @@ pnpm dev
 - The API persists suites, suite versions, runs, jobs, artifacts, and healing proposals in Postgres.
 - Redis and BullMQ are used for queued execution dispatch between the API and worker.
 - `playwright-local` now executes basic canonical test steps for web targets; mobile providers remain contract-backed placeholders for the next slice.
+- `apps/demo-target` provides a built-in app-under-test at `http://localhost:3010` so the internal alpha can exercise a known web target locally.

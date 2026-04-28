@@ -11,7 +11,7 @@ import { StatCard } from "./components/StatCard.js";
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await fetch(`${apiUrl}/api${path}`, {
     headers: { "Content-Type": "application/json" },
     ...init
   });
@@ -31,6 +31,7 @@ export function App() {
   const [selectedSuiteId, setSelectedSuiteId] = useState<string>("");
   const [editorValue, setEditorValue] = useState("");
   const [statusMessage, setStatusMessage] = useState("Ready");
+  const [executionMode, setExecutionMode] = useState<"web" | "mobile">("web");
 
   async function loadAll() {
     const [projectData, runData, suiteData, healingData] = await Promise.all([
@@ -71,7 +72,7 @@ export function App() {
       body: JSON.stringify({
         sourceType: "story",
         sourcePayload,
-        targetPlatform: "web",
+        targetPlatform: executionMode,
         browserOrDeviceScope: ["chromium", "firefox", "webkit", "android", "ios"]
       })
     });
@@ -107,8 +108,11 @@ export function App() {
       body: JSON.stringify({
         suiteVersionId: selectedSuite.versions[0].id,
         environment: "staging",
-        provider: "playwright-local",
-        matrix: [{ browserName: "chromium", os: "ubuntu-latest", baseUrl: "https://example.com" }]
+        provider: executionMode === "web" ? "playwright-local" : "browserstack-mobile",
+        matrix:
+          executionMode === "web"
+            ? [{ browserName: "chromium", os: "ubuntu-latest", baseUrl: "http://localhost:3010" }]
+            : [{ platformName: "android", deviceName: "Pixel 8", osVersion: "14" }]
       })
     });
     setStatusMessage(`Queued run ${run.id}`);
@@ -171,6 +175,17 @@ export function App() {
                   value={sourcePayload}
                   onChange={(event) => setSourcePayload(event.target.value)}
                 />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-600">Execution mode</span>
+                <select
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                  value={executionMode}
+                  onChange={(event) => setExecutionMode(event.target.value as "web" | "mobile")}
+                >
+                  <option value="web">Web alpha</option>
+                  <option value="mobile">Mobile contract</option>
+                </select>
               </label>
               <button className="rounded-full bg-ember px-5 py-3 font-semibold text-white" type="submit">
                 Generate persisted suite

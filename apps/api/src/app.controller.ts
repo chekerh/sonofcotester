@@ -129,6 +129,11 @@ export class AppController {
     return this.appService.listProjects();
   }
 
+  @Get("health")
+  health() {
+    return { ok: true, service: "api" };
+  }
+
   @Get("test-suites")
   listSuites() {
     return this.appService.listSuites();

@@ -14,6 +14,7 @@ import {
   markRunStarted,
   updateRunResult
 } from "@sonofcotester/data";
+import type { ExecutionRequest } from "@sonofcotester/sdk";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
   maxRetriesPerRequest: null
@@ -32,23 +33,17 @@ const bugs = new BugDraftService();
 
 type ExecutionJob = {
   runId: string;
-  suiteVersionId: string;
-  provider: "playwright-local" | "browserstack-web" | "browserstack-mobile" | "custom-appium";
+  request: ExecutionRequest;
 };
 
 new Worker<ExecutionJob>(
   queueName,
   async (job) => {
     await markRunStarted(job.data.runId);
-    const context = await getExecutionContext(job.data.suiteVersionId);
-    const provider = providers.get(job.data.provider);
+    const context = await getExecutionContext(job.data.request.suiteVersionId);
+    const provider = providers.get(job.data.request.provider);
     const result = await provider.execute(
-      {
-        suiteVersionId: job.data.suiteVersionId,
-        environment: "staging",
-        provider: job.data.provider,
-        matrix: [{ browserName: "chromium", os: "ubuntu-latest", baseUrl: "https://example.com" }]
-      },
+      job.data.request,
       context
     );
 

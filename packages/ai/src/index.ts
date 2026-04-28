@@ -27,20 +27,27 @@ export class TestGenerationService {
           {
             id: uid(),
             action: "navigate",
-            data: "https://example.com",
+            data: "http://localhost:3010",
             expectedOutcome: "Entry point loads without blocking errors"
           },
           {
             id: uid(),
-            action: "assertVisible",
-            target: "body",
-            expectedOutcome: "System accepts the input and continues"
+            action: "fill",
+            target: "[data-testid='email-input']",
+            data: "qa@sonofcotester.dev",
+            expectedOutcome: "Email is entered into the checkout form"
+          },
+          {
+            id: uid(),
+            action: "click",
+            target: "[data-testid='continue-button']",
+            expectedOutcome: "The form advances to the next status"
           },
           {
             id: uid(),
             action: "assertText",
-            target: "body",
-            data: "Example Domain",
+            target: "[data-testid='status']",
+            data: "Ready for checkout",
             expectedOutcome: "Expected confirmation or resulting state is visible"
           }
         ]
