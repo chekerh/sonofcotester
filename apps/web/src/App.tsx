@@ -4,6 +4,7 @@ import type {
   GeneratedSuiteResponse,
   HealingProposal,
   PersistedSuite,
+  ProviderCapability,
   ProjectSummary
 } from "@sonofcotester/sdk";
 import { StatCard } from "./components/StatCard.js";
@@ -32,21 +33,28 @@ export function App() {
   const [editorValue, setEditorValue] = useState("");
   const [statusMessage, setStatusMessage] = useState("Ready");
   const [executionMode, setExecutionMode] = useState<"web" | "mobile">("web");
+  const [providerCapabilities, setProviderCapabilities] = useState<ProviderCapability[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string>("");
 
   async function loadAll() {
-    const [projectData, runData, suiteData, healingData] = await Promise.all([
+    const [projectData, runData, suiteData, healingData, capabilityData] = await Promise.all([
       request<ProjectSummary[]>("/projects"),
       request<ExecutionRun[]>("/executions"),
       request<PersistedSuite[]>("/test-suites"),
-      request<HealingProposal[]>("/heal-proposals")
+      request<HealingProposal[]>("/heal-proposals"),
+      request<ProviderCapability[]>("/providers/capabilities")
     ]);
     setProjects(projectData);
     setRuns(runData);
     setSuites(suiteData);
     setHealing(healingData);
+    setProviderCapabilities(capabilityData);
     if (!selectedSuiteId && suiteData[0]) {
       setSelectedSuiteId(suiteData[0].id);
       setEditorValue(JSON.stringify(suiteData[0].versions[0]?.cases ?? [], null, 2));
+    }
+    if (!selectedRunId && runData[0]) {
+      setSelectedRunId(runData[0].id);
     }
   }
 
@@ -57,6 +65,10 @@ export function App() {
   const selectedSuite = useMemo(
     () => suites.find((suite) => suite.id === selectedSuiteId) ?? suites[0],
     [selectedSuiteId, suites]
+  );
+  const selectedRun = useMemo(
+    () => runs.find((run) => run.id === selectedRunId) ?? runs[0],
+    [runs, selectedRunId]
   );
 
   useEffect(() => {
@@ -116,6 +128,7 @@ export function App() {
       })
     });
     setStatusMessage(`Queued run ${run.id}`);
+    setSelectedRunId(run.id);
     await loadAll();
   }
 
@@ -191,6 +204,28 @@ export function App() {
                 Generate persisted suite
               </button>
             </form>
+            <div className="mt-6 rounded-3xl bg-sand p-5">
+              <h3 className="font-display text-lg font-semibold">Provider Readiness</h3>
+              <div className="mt-3 space-y-3">
+                {providerCapabilities
+                  .filter((capability) => capability.platform === executionMode)
+                  .map((capability) => (
+                    <div key={capability.provider} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-semibold text-slate-900">{capability.provider}</span>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+                            capability.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {capability.status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600">{capability.summary}</p>
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-[28px] bg-white/80 p-6 shadow-panel backdrop-blur">
@@ -227,7 +262,7 @@ export function App() {
           </div>
         </section>
 
-        <section className="mb-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <section className="mb-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-[28px] bg-white/80 p-6 shadow-panel backdrop-blur">
             <h2 className="mb-5 font-display text-2xl font-semibold">Healing Inbox</h2>
             <div className="space-y-4">
@@ -258,19 +293,58 @@ export function App() {
           </div>
 
           <div className="rounded-[28px] bg-ink p-6 text-white shadow-panel">
-            <h2 className="mb-5 font-display text-2xl font-semibold">Execution Feed</h2>
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <h2 className="font-display text-2xl font-semibold">Execution Feed</h2>
+              <select
+                className="rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm text-white"
+                value={selectedRun?.id ?? ""}
+                onChange={(event) => setSelectedRunId(event.target.value)}
+              >
+                {runs.map((run) => (
+                  <option key={run.id} value={run.id} className="text-slate-900">
+                    {run.provider} {run.id}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-4">
-              {runs.map((run) => (
-                <article key={run.id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="font-display text-lg">{run.provider}</span>
-                    <span className="text-sm uppercase tracking-[0.24em] text-amber-300">{run.status}</span>
+              {selectedRun ? (
+                <>
+                  <article className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="font-display text-lg">{selectedRun.provider}</span>
+                      <span className="text-sm uppercase tracking-[0.24em] text-amber-300">{selectedRun.status}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-300">{selectedRun.environment}</p>
+                    <p className="mt-2 text-sm text-slate-400">{selectedRun.stepEvents.length} steps, {selectedRun.artifacts.length} artifacts, {selectedRun.healingProposals.length} healing proposals</p>
+                    {selectedRun.errorMessage ? <p className="mt-2 text-sm text-red-200">{selectedRun.errorMessage}</p> : null}
+                  </article>
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <h3 className="font-display text-lg">Recent Step Events</h3>
+                    <div className="mt-3 space-y-3">
+                      {selectedRun.stepEvents.slice(0, 6).map((event) => (
+                        <div key={event.id} className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-sm uppercase tracking-[0.18em] text-slate-400">{event.status}</p>
+                          <p className="mt-1 text-sm text-slate-200">{event.message}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className="mt-2 text-sm text-slate-300">{run.environment}</p>
-                  <p className="mt-2 text-sm text-slate-400">{run.stepEvents.length} steps, {run.artifacts.length} artifacts, {run.healingProposals.length} healing proposals</p>
-                  {run.errorMessage ? <p className="mt-2 text-sm text-red-200">{run.errorMessage}</p> : null}
-                </article>
-              ))}
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                    <h3 className="font-display text-lg">Artifacts</h3>
+                    <div className="mt-3 space-y-3">
+                      {selectedRun.artifacts.map((artifact) => (
+                        <div key={artifact.id} className="rounded-2xl bg-white/5 p-3">
+                          <p className="text-sm text-slate-100">{artifact.label}</p>
+                          <p className="mt-1 text-xs text-slate-400">{artifact.url}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-slate-300">No runs yet.</div>
+              )}
             </div>
           </div>
         </section>
