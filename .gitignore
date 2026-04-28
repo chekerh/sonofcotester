@@ -3,8 +3,8 @@ dist
 .turbo
 .DS_Store
 .env
+.sonofcotester
 coverage
 playwright-report
 test-results
 pnpm-lock.yaml
-

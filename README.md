@@ -27,3 +27,7 @@ pnpm dev
 - Live execution stream gateway
 - Dashboard for projects, runs, healing, and bug drafts
 
+## Dev Persistence
+
+- API state is persisted to `.sonofcotester/store.json` for local development so suites, runs, and healing proposals survive restarts.
+- A PostgreSQL target schema is included in [prisma/schema.prisma](/Users/mac/Documents/New project/prisma/schema.prisma) as the next persistence step for production-grade orchestration.

@@ -73,6 +73,11 @@ export class AppController {
     return this.appService.listProjects();
   }
 
+  @Get("test-suites")
+  listSuites() {
+    return this.appService.listSuites();
+  }
+
   @Get("executions")
   listExecutions() {
     return this.appService.listExecutions();
@@ -95,6 +100,11 @@ export class AppController {
     return this.appService.getExecution(runId);
   }
 
+  @Get("heal-proposals")
+  listHealingProposals() {
+    return this.appService.listHealingProposals();
+  }
+
   @Post("heal-proposals/:id/apply")
   applyHealing(@Param("id") healProposalId: string) {
     return this.appService.applyHealing(healProposalId);
@@ -110,4 +120,3 @@ export class AppController {
     return this.appService.receiveGitHubActionsWebhook(body as GitHubActionsWebhookPayload);
   }
 }
-

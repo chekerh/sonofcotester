@@ -21,15 +21,8 @@ import type {
   ProjectSummary,
   TestGenerationRequest
 } from "@sonofcotester/sdk";
-
-type StoredSuite = {
-  id: string;
-  projectId: string;
-  versionId: string;
-  draft: GeneratedTestSuiteDraft;
-};
-
-const uid = () => Math.random().toString(36).slice(2, 10);
+import { uid } from "./lib/ids.js";
+import { DevStore, type StoredSuite } from "./store/dev-store.js";
 
 @Injectable()
 export class AppService {
@@ -42,36 +35,37 @@ export class AppService {
     new BrowserStackMobileProvider(),
     new CustomAppiumProvider()
   ]);
+  private readonly store = new DevStore();
 
-  private readonly projects: ProjectSummary[] = [
-    { id: "proj_demo", name: "Checkout Web", description: "Primary storefront regression pack" },
-    { id: "proj_mobile", name: "Companion App", description: "Mobile smoke coverage" }
-  ];
-
-  private readonly suites = new Map<string, StoredSuite>();
-  private readonly runs = new Map<string, ExecutionRun>();
-  private readonly healProposals = new Map<string, HealingProposal>();
-
-  listProjects(): ProjectSummary[] {
-    return this.projects.map((project) => ({
+  async listProjects(): Promise<ProjectSummary[]> {
+    const state = await this.store.read();
+    return state.projects.map((project) => ({
       ...project,
-      latestRun: [...this.runs.values()].find((run) => run.suiteId.startsWith(project.id))
+      latestRun: state.runs.find((run) => run.suiteId.startsWith(project.id))
     }));
   }
 
-  generateTests(projectId: string, input: TestGenerationRequest): GeneratedTestSuiteDraft {
+  async listSuites() {
+    const state = await this.store.read();
+    return state.suites;
+  }
+
+  async generateTests(projectId: string, input: TestGenerationRequest): Promise<GeneratedTestSuiteDraft> {
+    const state = await this.store.read();
     const draft = this.generator.generate(input);
-    this.suites.set(draft.id, {
+    state.suites.unshift({
       id: draft.id,
       projectId,
       versionId: `${draft.id}_v1`,
       draft
     });
+    await this.store.write(state);
     return draft;
   }
 
   async createExecution(suiteId: string, input: ExecutionRequest): Promise<ExecutionRun> {
-    const suite = this.suites.get(suiteId);
+    const state = await this.store.read();
+    const suite = state.suites.find((entry) => entry.id === suiteId);
     if (!suite) {
       throw new Error(`Unknown suite ${suiteId}`);
     }
@@ -84,31 +78,51 @@ export class AppService {
     });
 
     if (run.status === "healing-required") {
-      const proposal = this.healing.propose(suite.draft.cases[0]?.id ?? uid(), run.artifacts);
+      const proposal = this.healing.propose(suite.draft.cases[0]?.id ?? uid("case"), run.artifacts);
       const bug = this.bugDrafts.summarize("Potential regression detected", run.artifacts);
       run.healingProposals.push(proposal);
       run.bugDrafts.push(bug);
-      this.healProposals.set(proposal.id, proposal);
+      state.healProposals.unshift(proposal);
     }
 
-    this.runs.set(run.id, run);
+    state.runs.unshift(run);
+    await this.store.write(state);
     return run;
   }
 
-  getExecution(runId: string): ExecutionRun | undefined {
-    return this.runs.get(runId);
+  async getExecution(runId: string): Promise<ExecutionRun | undefined> {
+    const state = await this.store.read();
+    return state.runs.find((run) => run.id === runId);
   }
 
-  listExecutions(): ExecutionRun[] {
-    return [...this.runs.values()];
+  async listExecutions(): Promise<ExecutionRun[]> {
+    const state = await this.store.read();
+    return state.runs;
   }
 
-  applyHealing(healProposalId: string): HealingProposal {
-    const proposal = this.healProposals.get(healProposalId);
+  async listHealingProposals(): Promise<HealingProposal[]> {
+    const state = await this.store.read();
+    return state.healProposals;
+  }
+
+  async applyHealing(healProposalId: string): Promise<HealingProposal> {
+    const state = await this.store.read();
+    const proposal = state.healProposals.find((entry) => entry.id === healProposalId);
     if (!proposal) {
       throw new Error(`Unknown healing proposal ${healProposalId}`);
     }
     proposal.status = "applied";
+    state.runs = state.runs.map((run) =>
+      run.healingProposals.some((entry) => entry.id === healProposalId)
+        ? {
+            ...run,
+            healingProposals: run.healingProposals.map((entry) =>
+              entry.id === healProposalId ? proposal : entry
+            )
+          }
+        : run
+    );
+    await this.store.write(state);
     return proposal;
   }
 
@@ -131,4 +145,3 @@ export class AppService {
     };
   }
 }
-
