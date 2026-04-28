@@ -1,0 +1,28 @@
+{
+  "name": "@sonofcotester/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@sonofcotester/ai": "workspace:*",
+    "@sonofcotester/automation": "workspace:*",
+    "@sonofcotester/sdk": "workspace:*",
+    "bullmq": "^5.34.4",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
