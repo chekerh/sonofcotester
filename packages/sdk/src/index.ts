@@ -13,25 +13,28 @@ export type RunStatus =
   | "failed"
   | "canceled"
   | "healing-required";
+export type StepStatus = "pending" | "running" | "passed" | "failed";
 export type Severity = "low" | "medium" | "high" | "critical";
 
 export interface BrowserMatrixTarget {
   browserName: "chromium" | "firefox" | "webkit" | "chrome" | "edge";
   deviceProfile?: string;
   os?: string;
+  baseUrl?: string;
 }
 
 export interface MobileMatrixTarget {
   platformName: "ios" | "android";
   deviceName: string;
   osVersion?: string;
+  appId?: string;
 }
 
 export type ExecutionTarget = BrowserMatrixTarget | MobileMatrixTarget;
 
 export interface CanonicalTestStep {
   id: string;
-  action: string;
+  action: "navigate" | "click" | "fill" | "assertText" | "assertVisible";
   target?: string;
   data?: string;
   expectedOutcome: string;
@@ -55,11 +58,39 @@ export interface GeneratedTestSuiteDraft {
   cases: CanonicalTestCase[];
 }
 
+export interface PersistedSuiteVersion {
+  id: string;
+  suiteId: string;
+  versionNumber: number;
+  status: "draft" | "ready" | "archived";
+  notes?: string;
+  cases: CanonicalTestCase[];
+}
+
+export interface PersistedSuite {
+  id: string;
+  projectId: string;
+  sourceType: SourceType;
+  summary: string;
+  versions: PersistedSuiteVersion[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ExecutionArtifact {
   id: string;
   type: "trace" | "screenshot" | "video" | "log" | "dom-snapshot";
   label: string;
   url: string;
+  createdAt: string;
+}
+
+export interface StepEvent {
+  id: string;
+  testCaseId: string;
+  stepId: string;
+  status: StepStatus;
+  message: string;
   createdAt: string;
 }
 
@@ -71,6 +102,7 @@ export interface HealingSignal {
 
 export interface HealingProposal {
   id: string;
+  executionId?: string;
   testCaseId: string;
   status: "pending" | "approved" | "rejected" | "applied";
   patch: string;
@@ -101,6 +133,12 @@ export interface TestGenerationRequest {
   browserOrDeviceScope: string[];
 }
 
+export interface TestSuiteUpdateRequest {
+  summary: string;
+  notes?: string;
+  cases: CanonicalTestCase[];
+}
+
 export interface ExecutionRequest {
   suiteVersionId: string;
   environment: string;
@@ -117,8 +155,10 @@ export interface ExecutionRun {
   status: RunStatus;
   startedAt?: string;
   finishedAt?: string;
+  errorMessage?: string;
   matrix: ExecutionTarget[];
   artifacts: ExecutionArtifact[];
+  stepEvents: StepEvent[];
   healingProposals: HealingProposal[];
   bugDrafts: BugDraft[];
 }
@@ -143,3 +183,8 @@ export interface ProjectSummary {
   latestRun?: ExecutionRun;
 }
 
+export interface GeneratedSuiteResponse {
+  suiteId: string;
+  suiteVersionId: string;
+  draft: GeneratedTestSuiteDraft;
+}

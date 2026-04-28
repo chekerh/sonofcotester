@@ -1,0 +1,173 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id          String    @id
+  name        String
+  description String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    Project[]
+  users       User[]
+}
+
+model User {
+  id          String    @id
+  workspaceId String
+  email       String    @unique
+  name        String
+  role        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id            String         @id
+  workspaceId   String
+  name          String
+  description   String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  testSuites    TestSuite[]
+  executionRuns ExecutionRun[]
+}
+
+model TestSuite {
+  id          String       @id
+  projectId   String
+  sourceType  String
+  summary     String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions    TestVersion[]
+  executions  ExecutionRun[] @relation("SuiteExecutionRuns")
+}
+
+model TestVersion {
+  id          String         @id
+  suiteId      String
+  versionNumber Int
+  status      String
+  notes       String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  suite       TestSuite      @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+  testCases   TestCase[]
+  executionRuns ExecutionRun[]
+}
+
+model TestCase {
+  id            String      @id
+  versionId     String
+  title         String
+  feature       String
+  priority      String
+  platform      String
+  prerequisites Json
+  tags          Json
+  steps         Json
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  version       TestVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+}
+
+model ExecutionRun {
+  id               String            @id
+  projectId        String
+  suiteId          String
+  suiteVersionId   String
+  provider         String
+  environment      String
+  status           String
+  matrix           Json
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  errorMessage     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  suite            TestSuite         @relation("SuiteExecutionRuns", fields: [suiteId], references: [id], onDelete: Cascade)
+  suiteVersion     TestVersion       @relation(fields: [suiteVersionId], references: [id], onDelete: Cascade)
+  jobs             ExecutionJob[]
+  artifacts        ExecutionArtifact[]
+  stepEvents       StepEvent[]
+  healingProposals HealingProposal[]
+  bugReports       BugReport[]
+}
+
+model ExecutionJob {
+  id           String       @id
+  runId        String
+  provider     String
+  status       String
+  queueName    String
+  attempts     Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  run          ExecutionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model ExecutionArtifact {
+  id          String       @id
+  runId       String
+  type        String
+  label       String
+  path        String
+  createdAt   DateTime     @default(now())
+  run         ExecutionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model StepEvent {
+  id          String       @id
+  runId       String
+  testCaseId  String
+  stepId      String
+  status      String
+  message     String
+  createdAt   DateTime     @default(now())
+  run         ExecutionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+}
+
+model HealingProposal {
+  id          String       @id
+  executionId String
+  testCaseId  String
+  status      String
+  patch       String
+  rationale   String
+  signals     Json
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  execution   ExecutionRun @relation(fields: [executionId], references: [id], onDelete: Cascade)
+}
+
+model BugReport {
+  id                String       @id
+  executionId       String
+  title             String
+  summary           String
+  severity          String
+  reproductionSteps Json
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  execution         ExecutionRun @relation(fields: [executionId], references: [id], onDelete: Cascade)
+}
+
+model IntegrationLink {
+  id          String   @id
+  projectId   String
+  provider    String
+  externalId  String
+  metadata    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

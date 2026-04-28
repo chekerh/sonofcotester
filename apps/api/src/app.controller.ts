@@ -1,11 +1,13 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
 import { IsArray, IsIn, IsString } from "class-validator";
 import type {
+  CanonicalTestCase,
   ExecutionTarget,
   GitHubActionsWebhookPayload,
   JiraSyncRequest,
   ProviderName,
   SourceType,
+  TestSuiteUpdateRequest,
   TargetPlatform
 } from "@sonofcotester/sdk";
 import { AppService } from "./app.service.js";
@@ -47,6 +49,60 @@ class JiraSyncDto {
   issueTypes!: string[];
 }
 
+class CanonicalTestStepDto {
+  @IsString()
+  id!: string;
+
+  @IsIn(["navigate", "click", "fill", "assertText", "assertVisible"])
+  action!: CanonicalTestCase["steps"][number]["action"];
+
+  @IsString()
+  target?: string;
+
+  @IsString()
+  data?: string;
+
+  @IsString()
+  expectedOutcome!: string;
+}
+
+class CanonicalTestCaseDto {
+  @IsString()
+  id!: string;
+
+  @IsString()
+  title!: string;
+
+  @IsString()
+  feature!: string;
+
+  @IsIn(["p0", "p1", "p2", "p3"])
+  priority!: CanonicalTestCase["priority"];
+
+  @IsIn(["web", "mobile"])
+  platform!: CanonicalTestCase["platform"];
+
+  @IsArray()
+  prerequisites!: string[];
+
+  @IsArray()
+  tags!: string[];
+
+  @IsArray()
+  steps!: CanonicalTestStepDto[];
+}
+
+class TestSuiteUpdateDto {
+  @IsString()
+  summary!: string;
+
+  @IsString()
+  notes?: string;
+
+  @IsArray()
+  cases!: CanonicalTestCaseDto[];
+}
+
 class GitHubActionsWebhookDto {
   @IsString()
   workflowName!: string;
@@ -78,6 +134,11 @@ export class AppController {
     return this.appService.listSuites();
   }
 
+  @Get("test-suites/:id")
+  getSuite(@Param("id") suiteId: string) {
+    return this.appService.getSuite(suiteId);
+  }
+
   @Get("executions")
   listExecutions() {
     return this.appService.listExecutions();
@@ -88,10 +149,15 @@ export class AppController {
     return this.appService.generateTests(projectId, body);
   }
 
+  @Patch("test-suites/:id")
+  updateSuite(@Param("id") suiteId: string, @Body() body: TestSuiteUpdateDto) {
+    return this.appService.updateSuite(suiteId, body as TestSuiteUpdateRequest);
+  }
+
   @Post("test-suites/:id/executions")
   async createExecution(@Param("id") suiteId: string, @Body() body: ExecutionRequestDto) {
     const run = await this.appService.createExecution(suiteId, body);
-    this.orchestration.publishRun(run);
+    await this.orchestration.publishRunById(run.id);
     return run;
   }
 

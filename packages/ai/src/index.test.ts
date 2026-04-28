@@ -11,7 +11,7 @@ describe("ai services", () => {
       browserOrDeviceScope: ["chromium"]
     });
 
-    expect(draft.cases[0]?.steps.length).toBeGreaterThan(0);
+    expect(draft.cases[0]?.steps[0]?.action).toBe("navigate");
   });
 
   it("creates healing proposals and bug drafts", () => {
@@ -31,4 +31,3 @@ describe("ai services", () => {
     expect(bugs.summarize("regression", artifacts).severity).toBe("medium");
   });
 });
-

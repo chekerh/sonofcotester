@@ -26,17 +26,21 @@ export class TestGenerationService {
         steps: [
           {
             id: uid(),
-            action: "Navigate to the feature entry point",
+            action: "navigate",
+            data: "https://example.com",
             expectedOutcome: "Entry point loads without blocking errors"
           },
           {
             id: uid(),
-            action: "Perform the primary user action",
+            action: "assertVisible",
+            target: "body",
             expectedOutcome: "System accepts the input and continues"
           },
           {
             id: uid(),
-            action: "Verify the success state",
+            action: "assertText",
+            target: "body",
+            data: "Example Domain",
             expectedOutcome: "Expected confirmation or resulting state is visible"
           }
         ]
@@ -94,4 +98,3 @@ export class BugDraftService {
     };
   }
 }
-

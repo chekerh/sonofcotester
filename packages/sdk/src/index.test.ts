@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CanonicalTestCase, ExecutionRun } from "./index.js";
+import type { CanonicalTestCase, ExecutionRun, PersistedSuite } from "./index.js";
 
 describe("sdk contracts", () => {
   it("supports canonical test cases", () => {
@@ -14,7 +14,8 @@ describe("sdk contracts", () => {
       steps: [
         {
           id: "step_1",
-          action: "click buy",
+          action: "click",
+          target: "#buy",
           expectedOutcome: "checkout opens"
         }
       ]
@@ -33,11 +34,33 @@ describe("sdk contracts", () => {
       status: "queued",
       matrix: [],
       artifacts: [],
+      stepEvents: [],
       healingProposals: [],
       bugDrafts: []
     };
 
     expect(run.provider).toBe("playwright-local");
   });
-});
 
+  it("supports persisted suite versions", () => {
+    const suite: PersistedSuite = {
+      id: "suite_1",
+      projectId: "project_1",
+      sourceType: "story",
+      summary: "Checkout suite",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      versions: [
+        {
+          id: "suite_1_v1",
+          suiteId: "suite_1",
+          versionNumber: 1,
+          status: "draft",
+          cases: []
+        }
+      ]
+    };
+
+    expect(suite.versions[0]?.versionNumber).toBe(1);
+  });
+});

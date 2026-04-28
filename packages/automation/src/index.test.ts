@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { PlaywrightLocalProvider } from "./index.js";
+import { BrowserStackWebProvider } from "./index.js";
 
 describe("automation providers", () => {
-  it("returns a healing-required run for local playwright execution", async () => {
-    const provider = new PlaywrightLocalProvider();
+  it("returns a queued run for unimplemented browserstack execution", async () => {
+    const provider = new BrowserStackWebProvider();
     const run = await provider.execute(
       {
         suiteVersionId: "suite_v1",
         environment: "staging",
-        provider: "playwright-local",
+        provider: "browserstack-web",
         matrix: []
       },
       {
@@ -18,8 +18,7 @@ describe("automation providers", () => {
       }
     );
 
-    expect(run.status).toBe("healing-required");
-    expect(run.artifacts.length).toBeGreaterThan(0);
+    expect(run.status).toBe("queued");
+    expect(run.errorMessage).toContain("not implemented");
   });
 });
-

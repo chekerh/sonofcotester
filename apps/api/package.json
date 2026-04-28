@@ -20,9 +20,12 @@
     "@nestjs/websockets": "^10.4.15",
     "@sonofcotester/ai": "workspace:*",
     "@sonofcotester/automation": "workspace:*",
+    "@sonofcotester/data": "workspace:*",
     "@sonofcotester/sdk": "workspace:*",
+    "bullmq": "^5.34.4",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "ioredis": "^5.4.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1"

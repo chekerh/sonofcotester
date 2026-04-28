@@ -1,13 +1,15 @@
 import { Injectable } from "@nestjs/common";
-import type { ExecutionRun } from "@sonofcotester/sdk";
+import { getExecution } from "@sonofcotester/data";
 import { ExecutionGateway } from "./execution.gateway.js";
 
 @Injectable()
 export class OrchestrationService {
   constructor(private readonly gateway: ExecutionGateway) {}
 
-  publishRun(run: ExecutionRun) {
-    this.gateway.emitRunUpdate(run);
+  async publishRunById(runId: string) {
+    const run = await getExecution(runId);
+    if (run) {
+      this.gateway.emitRunUpdate(run);
+    }
   }
 }
-

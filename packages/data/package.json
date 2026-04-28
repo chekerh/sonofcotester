@@ -1,5 +1,5 @@
 {
-  "name": "@sonofcotester/automation",
+  "name": "@sonofcotester/data",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,16 +14,20 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -w -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "format": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --check \"src/**/*.ts\"",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma"
   },
   "dependencies": {
-    "@sonofcotester/sdk": "workspace:*",
-    "playwright": "^1.52.0"
+    "@prisma/client": "^6.7.0",
+    "@sonofcotester/sdk": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "prettier": "^3.4.2",
+    "prisma": "^6.7.0",
+    "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   }
 }
