@@ -38,3 +38,10 @@ pnpm dev:alpha
 - Redis and BullMQ are used for queued execution dispatch between the API and worker.
 - `playwright-local` now executes basic canonical test steps for web targets; mobile providers remain contract-backed placeholders for the next slice.
 - `apps/demo-target` provides a built-in app-under-test at `http://localhost:3010` so the internal alpha can exercise a known web target locally.
+
+## Mobile Contract Path
+
+- `browserstack-mobile` now validates and persists a BrowserStack/Appium session payload contract instead of acting like a silent placeholder.
+- If `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` are missing, the mobile run fails with a clear configuration error and writes mobile contract artifacts.
+- If those env vars are present, the provider records a successful contract-validation run and stores the generated session payload artifact for inspection.
+- Live mobile device execution is still the next implementation slice; this phase is for validating the backend and provider contract path cleanly.
