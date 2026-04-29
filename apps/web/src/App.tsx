@@ -318,7 +318,31 @@ export function App() {
                     <p className="mt-2 text-sm text-slate-300">{selectedRun.environment}</p>
                     <p className="mt-2 text-sm text-slate-400">{selectedRun.stepEvents.length} steps, {selectedRun.artifacts.length} artifacts, {selectedRun.healingProposals.length} healing proposals</p>
                     {selectedRun.errorMessage ? <p className="mt-2 text-sm text-red-200">{selectedRun.errorMessage}</p> : null}
+                    {selectedRun.externalSessionId ? (
+                      <div className="mt-3 rounded-2xl bg-white/5 p-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">External Session</p>
+                        <p className="mt-1 text-sm text-slate-100">{selectedRun.externalSessionId}</p>
+                        {selectedRun.externalSessionUrl ? (
+                          <a
+                            className="mt-2 inline-block text-sm text-amber-300 underline"
+                            href={selectedRun.externalSessionUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open cloud session
+                          </a>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
+                  {selectedRun.executionMetadata ? (
+                    <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+                      <h3 className="font-display text-lg">Execution Metadata</h3>
+                      <pre className="mt-3 overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs text-slate-100">
+                        {JSON.stringify(selectedRun.executionMetadata, null, 2)}
+                      </pre>
+                    </div>
+                  ) : null}
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                     <h3 className="font-display text-lg">Recent Step Events</h3>
                     <div className="mt-3 space-y-3">
