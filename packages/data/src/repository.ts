@@ -89,6 +89,9 @@ function mapRun(run: {
   startedAt: Date | null;
   finishedAt: Date | null;
   errorMessage: string | null;
+  externalSessionId?: string | null;
+  externalSessionUrl?: string | null;
+  executionMetadata?: unknown;
   matrix: unknown;
   artifacts: Array<{ id: string; type: string; label: string; path: string; createdAt: Date }>;
   stepEvents: Array<{ id: string; testCaseId: string; stepId: string; status: string; message: string; createdAt: Date }>;
@@ -106,6 +109,9 @@ function mapRun(run: {
     startedAt: run.startedAt?.toISOString(),
     finishedAt: run.finishedAt?.toISOString(),
     errorMessage: run.errorMessage ?? undefined,
+    externalSessionId: run.externalSessionId ?? undefined,
+    externalSessionUrl: run.externalSessionUrl ?? undefined,
+    executionMetadata: (run.executionMetadata as Record<string, unknown> | null) ?? undefined,
     matrix: run.matrix as ExecutionRun["matrix"],
     artifacts,
     stepEvents: mapStepEvents(run.stepEvents),
@@ -309,6 +315,7 @@ export async function createExecutionRun(projectId: string, suiteId: string, req
       environment: request.environment,
       status: "queued",
       matrix: asJson(request.matrix),
+      executionMetadata: asJson({ queuedAt: new Date().toISOString() }),
       jobs: {
         create: {
           id: jobId,
@@ -453,6 +460,9 @@ export async function updateRunResult(
       status: result.status,
       finishedAt: result.finishedAt ? new Date(result.finishedAt) : new Date(),
       errorMessage: result.errorMessage,
+      externalSessionId: result.externalSessionId,
+      externalSessionUrl: result.externalSessionUrl,
+      executionMetadata: result.executionMetadata ? asJson(result.executionMetadata) : undefined,
       artifacts: {
         create: result.artifacts.map((artifact) => ({
           id: artifact.id,

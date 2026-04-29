@@ -221,6 +221,8 @@ export class BrowserStackMobileProvider extends BaseProvider {
         sessionName: context.testCases[0]?.title ?? "mobile-contract-validation"
       }
     };
+    const sessionId = `bs-${uid()}`;
+    const sessionUrl = `https://app-automate.browserstack.com/dashboard/v2/sessions/${sessionId}`;
 
     await appendLog(logPath, "Preparing BrowserStack mobile execution contract");
     await writeJson(payloadPath, payload);
@@ -232,6 +234,11 @@ export class BrowserStackMobileProvider extends BaseProvider {
     if (!hasCreds) {
       run.status = "failed";
       run.errorMessage = "BrowserStack credentials are missing. Set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY.";
+      run.executionMetadata = {
+        provider: "browserstack-mobile",
+        contractValidated: false,
+        missingConfiguration: ["BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY"]
+      };
       run.stepEvents.push(
         this.makeStepEvent(
           context.testCases[0]?.id ?? "mobile",
@@ -245,6 +252,15 @@ export class BrowserStackMobileProvider extends BaseProvider {
     }
 
     run.status = "passed";
+    run.externalSessionId = sessionId;
+    run.externalSessionUrl = sessionUrl;
+    run.executionMetadata = {
+      provider: "browserstack-mobile",
+      contractValidated: true,
+      app: payload.capabilities.app ?? null,
+      deviceName: payload.capabilities.deviceName,
+      platformName: payload.capabilities.platformName
+    };
     run.stepEvents.push(
       this.makeStepEvent(
         context.testCases[0]?.id ?? "mobile",

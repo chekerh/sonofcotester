@@ -156,6 +156,9 @@ export interface ExecutionRun {
   startedAt?: string;
   finishedAt?: string;
   errorMessage?: string;
+  externalSessionId?: string;
+  externalSessionUrl?: string;
+  executionMetadata?: Record<string, unknown>;
   matrix: ExecutionTarget[];
   artifacts: ExecutionArtifact[];
   stepEvents: StepEvent[];

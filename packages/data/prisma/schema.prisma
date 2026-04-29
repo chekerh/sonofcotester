@@ -92,6 +92,9 @@ model ExecutionRun {
   startedAt        DateTime?
   finishedAt       DateTime?
   errorMessage     String?
+  externalSessionId String?
+  externalSessionUrl String?
+  executionMetadata Json?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)

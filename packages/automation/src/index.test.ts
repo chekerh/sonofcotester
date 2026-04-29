@@ -43,5 +43,6 @@ describe("automation providers", () => {
 
     expect(run.status).toBe("failed");
     expect(run.artifacts.length).toBeGreaterThan(0);
+    expect(run.executionMetadata?.provider).toBe("browserstack-mobile");
   });
 });
