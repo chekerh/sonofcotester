@@ -11,7 +11,8 @@
     "test": "turbo run test",
     "format": "turbo run format",
     "prisma:generate": "pnpm --filter @sonofcotester/data prisma:generate",
-    "db:push": "pnpm --filter @sonofcotester/data exec prisma db push --schema prisma/schema.prisma"
+    "db:push": "pnpm --filter @sonofcotester/data exec prisma db push --schema prisma/schema.prisma",
+    "run:alpha": "bash ./scripts/run-alpha.sh"
   },
   "devDependencies": {
     "turbo": "^2.0.14",

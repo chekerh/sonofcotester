@@ -15,6 +15,12 @@ AI-powered software testing platform scaffold inspired by CoTester.
 ## Quick Start
 
 ```bash
+pnpm run:alpha
+```
+
+Equivalent manual steps:
+
+```bash
 docker compose up -d
 pnpm install
 pnpm prisma:generate
