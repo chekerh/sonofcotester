@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { CanonicalTestCase, ExecutionRun, PersistedSuite, ProviderCapability } from "./index.js";
+import type {
+  CanonicalTestCase,
+  ExecutionRun,
+  ExecutionStreamEvent,
+  PersistedSuite,
+  ProviderCapability
+} from "./index.js";
 
 describe("sdk contracts", () => {
   it("supports canonical test cases", () => {
@@ -79,5 +85,29 @@ describe("sdk contracts", () => {
     };
 
     expect(capability.platform).toBe("mobile");
+  });
+
+  it("supports execution stream events", () => {
+    const event: ExecutionStreamEvent = {
+      type: "started",
+      runId: "run_1",
+      timestamp: new Date().toISOString(),
+      run: {
+        id: "run_1",
+        suiteId: "suite_1",
+        suiteVersionId: "suite_1_v1",
+        provider: "playwright-local",
+        environment: "staging",
+        status: "running",
+        matrix: [{ browserName: "chromium", baseUrl: "http://localhost:3010" }],
+        artifacts: [],
+        stepEvents: [],
+        healingProposals: [],
+        bugDrafts: []
+      }
+    };
+
+    expect(event.run.id).toBe(event.runId);
+    expect(event.type).toBe("started");
   });
 });

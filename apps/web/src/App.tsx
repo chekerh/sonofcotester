@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
 import type {
   ExecutionRun,
+  ExecutionStreamEvent,
   GeneratedSuiteResponse,
   HealingProposal,
   PersistedSuite,
@@ -10,6 +12,28 @@ import type {
 import { StatCard } from "./components/StatCard.js";
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const socket = io(`${apiUrl}/executions`, {
+  autoConnect: true,
+  transports: ["websocket"]
+});
+
+function upsertRun(runs: ExecutionRun[], incoming: ExecutionRun) {
+  const existing = runs.find((run) => run.id === incoming.id);
+  if (!existing) {
+    return [incoming, ...runs];
+  }
+
+  return runs.map((run) => (run.id === incoming.id ? incoming : run));
+}
+
+function upsertHealing(healing: HealingProposal[], incoming: HealingProposal[]) {
+  const next = new Map(healing.map((proposal) => [proposal.id, proposal]));
+  for (const proposal of incoming) {
+    next.set(proposal.id, proposal);
+  }
+
+  return Array.from(next.values());
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiUrl}/api${path}`, {
@@ -62,6 +86,22 @@ export function App() {
     void loadAll();
   }, []);
 
+  useEffect(() => {
+    const handleRunEvent = (event: ExecutionStreamEvent) => {
+      setRuns((current) => upsertRun(current, event.run));
+      setHealing((current) => upsertHealing(current, event.run.healingProposals));
+      setStatusMessage(`Run ${event.runId} ${event.type}`);
+      if (!selectedRunId) {
+        setSelectedRunId(event.runId);
+      }
+    };
+
+    socket.on("run:event", handleRunEvent);
+    return () => {
+      socket.off("run:event", handleRunEvent);
+    };
+  }, [selectedRunId]);
+
   const selectedSuite = useMemo(
     () => suites.find((suite) => suite.id === selectedSuiteId) ?? suites[0],
     [selectedSuiteId, suites]
@@ -76,6 +116,12 @@ export function App() {
       setEditorValue(JSON.stringify(selectedSuite.versions[0]?.cases ?? [], null, 2));
     }
   }, [selectedSuite?.id]);
+
+  useEffect(() => {
+    if (selectedRunId) {
+      socket.emit("run:watch", { runId: selectedRunId });
+    }
+  }, [selectedRunId]);
 
   async function generateSuite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

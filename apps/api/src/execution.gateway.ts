@@ -1,6 +1,6 @@
-import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import { SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import type { Server } from "socket.io";
-import type { ExecutionRun } from "@sonofcotester/sdk";
+import type { ExecutionStreamEvent } from "@sonofcotester/sdk";
 
 @WebSocketGateway({
   cors: { origin: "*" },
@@ -10,10 +10,17 @@ export class ExecutionGateway {
   @WebSocketServer()
   server!: Server;
 
-  emitRunUpdate(run: ExecutionRun) {
+  @SubscribeMessage("run:watch")
+  handleRunWatch(client: { join: (room: string) => void }, payload: { runId?: string }) {
+    if (payload.runId) {
+      client.join(`run:${payload.runId}`);
+    }
+  }
+
+  emitRunEvent(event: ExecutionStreamEvent) {
     if (this.server) {
-      this.server.emit("run:update", run);
+      this.server.emit("run:event", event);
+      this.server.to(`run:${event.runId}`).emit("run:event", event);
     }
   }
 }
-

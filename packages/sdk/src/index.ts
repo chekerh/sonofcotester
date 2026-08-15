@@ -166,6 +166,22 @@ export interface ExecutionRun {
   bugDrafts: BugDraft[];
 }
 
+export type ExecutionEventType =
+  | "queued"
+  | "started"
+  | "completed"
+  | "failed"
+  | "healing-ready";
+
+export interface ExecutionStreamEvent {
+  type: ExecutionEventType;
+  runId: string;
+  run: ExecutionRun;
+  timestamp: string;
+}
+
+export const EXECUTION_STREAM_CHANNEL = "execution-stream";
+
 export interface JiraSyncRequest {
   projectKey: string;
   issueTypes: string[];
