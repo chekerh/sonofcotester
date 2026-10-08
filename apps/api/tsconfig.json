@@ -6,8 +6,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "paths": {}
   },
-  "include": ["src"]
+  "include": ["src"],
+  "ts-node": {
+    "esm": true,
+    "swc": true,
+    "transpileOnly": true
+  }
 }
-

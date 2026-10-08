@@ -4,15 +4,16 @@
   "version": "0.1.0",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "turbo run dev --parallel",
-    "dev:alpha": "turbo run dev --parallel --filter=@sonofcotester/demo-target --filter=@sonofcotester/api --filter=@sonofcotester/worker --filter=@sonofcotester/web",
+    "dev": "turbo run dev",
+    "dev:alpha": "turbo run dev --filter=@sonofcotester/demo-target --filter=@sonofcotester/api --filter=@sonofcotester/worker --filter=@sonofcotester/web",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "bash ./scripts/alpha-env.test.sh && turbo run test",
     "format": "turbo run format",
     "prisma:generate": "pnpm --filter @sonofcotester/data prisma:generate",
     "db:push": "pnpm --filter @sonofcotester/data exec prisma db push --schema prisma/schema.prisma",
-    "run:alpha": "bash ./scripts/run-alpha.sh"
+    "run:alpha": "bash ./scripts/run-alpha.sh",
+    "run:app": "bash ./run_app.sh"
   },
   "devDependencies": {
     "turbo": "^2.0.14",

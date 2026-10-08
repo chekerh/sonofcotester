@@ -19,7 +19,9 @@
     "format": "prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
-    "@sonofcotester/sdk": "workspace:*"
+    "@sonofcotester/sdk": "workspace:*",
+    "@sonofcotester/automation": "workspace:*",
+    "playwright": "^1.52.0"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

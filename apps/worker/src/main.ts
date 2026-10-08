@@ -4,6 +4,8 @@ import {
   BrowserStackMobileProvider,
   BrowserStackWebProvider,
   CustomAppiumProvider,
+  MaestroCloudExecutionProvider,
+  MaestroLocalProvider,
   PlaywrightLocalProvider,
   ProviderRegistry
 } from "@sonofcotester/automation";
@@ -13,12 +15,17 @@ import {
   getExecutionContext,
   markRunStarted,
   getExecution,
-  updateRunResult
+  updateRunResult,
+  recordUsage
 } from "@sonofcotester/data";
 import { EXECUTION_STREAM_CHANNEL, type ExecutionEventType, type ExecutionRequest, type ExecutionRun } from "@sonofcotester/sdk";
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-  maxRetriesPerRequest: null
+  maxRetriesPerRequest: null,
+  retryStrategy: (times) => Math.min(times * 100, 3000)
+});
+connection.on("error", (err) => {
+  console.warn(`[Worker] Redis connection warning: ${err.message}`);
 });
 
 const queueName = "execution-jobs";
@@ -27,7 +34,9 @@ const providers = new ProviderRegistry([
   new PlaywrightLocalProvider(),
   new BrowserStackWebProvider(),
   new BrowserStackMobileProvider(),
-  new CustomAppiumProvider()
+  new CustomAppiumProvider(),
+  new MaestroLocalProvider() as any,
+  new MaestroCloudExecutionProvider()
 ]);
 const healing = new HealingAnalysisService();
 const bugs = new BugDraftService();
@@ -61,15 +70,45 @@ new Worker<ExecutionJob>(
     const provider = providers.get(job.data.request.provider);
     const result = await provider.execute(
       job.data.request,
-      context
+      context,
+      async (_event, partialRun) => {
+        if (startedRun) {
+          await publishRunEvent("started", {
+            ...startedRun,
+            status: "running",
+            stepEvents: [...partialRun.stepEvents]
+          });
+        }
+      }
     );
 
+    const failedEvent = result.stepEvents.find((e) => e.status === "failed");
+    const failedCase = context.testCases.find((c) => c.id === failedEvent?.testCaseId) ?? context.testCases[0];
+    const failedStep = failedCase?.steps.find((s) => s.id === failedEvent?.stepId);
+
     const healingProposals =
-      result.status === "healing-required" ? [healing.propose(context.testCases[0]?.id ?? "unknown", result.artifacts)] : [];
+      result.status === "healing-required"
+        ? [
+            {
+              ...(await healing.proposeWithModel(
+                failedCase?.id ?? "unknown",
+                result.artifacts,
+                result.errorMessage,
+                failedStep?.action,
+                failedStep?.target
+              )),
+              executionId: job.data.runId
+            }
+          ]
+        : [];
+
     const bugDrafts =
-      result.status === "healing-required" ? [bugs.summarize("Worker-detected regression", result.artifacts)] : [];
+      result.status === "healing-required"
+        ? [await bugs.summarizeWithModel("Worker-detected regression", result.artifacts, result.errorMessage)]
+        : [];
 
     await updateRunResult(job.data.runId, result, healingProposals, bugDrafts);
+    await recordUsage("ws_internal", "run", 1).catch(() => undefined);
     const completedRun = await getExecution(job.data.runId);
     if (completedRun) {
       const eventType: ExecutionEventType =

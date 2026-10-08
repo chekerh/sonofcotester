@@ -17,6 +17,8 @@ import type {
   RunStatus,
   StepEvent
 } from "@sonofcotester/sdk";
+import { generateMaestroFlows } from "./maestro-flow-generator.js";
+import { MaestroCloudProvider } from "./maestro-cloud-provider.js";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -28,7 +30,11 @@ export interface ExecutionContext {
 
 export interface ExecutionProvider {
   readonly name: ProviderName;
-  execute(request: ExecutionRequest, context: ExecutionContext): Promise<ExecutionRun>;
+  execute(
+    request: ExecutionRequest,
+    context: ExecutionContext,
+    onStep?: (event: StepEvent, partialRun: ExecutionRun) => void | Promise<void>
+  ): Promise<ExecutionRun>;
 }
 
 export type PersistedExecutionResult = {
@@ -37,7 +43,11 @@ export type PersistedExecutionResult = {
 
 abstract class BaseProvider implements ExecutionProvider {
   abstract readonly name: ProviderName;
-  abstract execute(request: ExecutionRequest, context: ExecutionContext): Promise<ExecutionRun>;
+  abstract execute(
+    request: ExecutionRequest,
+    context: ExecutionContext,
+    onStep?: (event: StepEvent, partialRun: ExecutionRun) => void | Promise<void>
+  ): Promise<ExecutionRun>;
 
   protected makeArtifact(type: ExecutionArtifact["type"], label: string, url: string): ExecutionArtifact {
     return {
@@ -112,7 +122,11 @@ function isBrowserTarget(
 export class PlaywrightLocalProvider extends BaseProvider {
   readonly name = "playwright-local" as const;
 
-  async execute(request: ExecutionRequest, context: ExecutionContext): Promise<ExecutionRun> {
+  async execute(
+    request: ExecutionRequest,
+    context: ExecutionContext,
+    onStep?: (event: StepEvent, partialRun: ExecutionRun) => void | Promise<void>
+  ): Promise<ExecutionRun> {
     const run = this.makeRun(request, context, "running");
     const artifactDir = resolve(process.cwd(), "artifacts", run.id);
     await mkdir(artifactDir, { recursive: true });
@@ -120,37 +134,81 @@ export class PlaywrightLocalProvider extends BaseProvider {
     let browser: Browser | undefined;
     let page: Page | undefined;
     let browserContext: BrowserContext | undefined;
+    let currentTestCaseId = "";
+    let currentStepId = "";
 
     try {
+      const baseUrl = isBrowserTarget(request.matrix[0]) ? request.matrix[0].baseUrl : undefined;
       browser = await browserFor(isBrowserTarget(request.matrix[0]) ? request.matrix[0].browserName : "chromium");
-      browserContext = await browser.newContext();
+      browserContext = await browser.newContext({
+        baseURL: baseUrl,
+        viewport: { width: 1280, height: 800 },
+        ignoreHTTPSErrors: true
+      });
       page = await browserContext.newPage();
       await browserContext.tracing.start({ screenshots: true, snapshots: true });
 
       for (const testCase of context.testCases) {
+        currentTestCaseId = testCase.id;
         for (const step of testCase.steps) {
-          run.stepEvents.push(this.makeStepEvent(testCase.id, step.id, "running", step.action));
+          currentStepId = step.id;
+          const runningEvt = this.makeStepEvent(testCase.id, step.id, "running", step.action);
+          run.stepEvents.push(runningEvt);
           await appendLog(logPath, `${testCase.title} :: ${step.action} ${step.target ?? ""}`.trim());
+          await onStep?.(runningEvt, run);
 
-          if (step.action === "navigate" && step.data) {
-            await page.goto(step.data);
+          if (step.action === "navigate") {
+            const dest = step.data || baseUrl || "/";
+            await page.goto(dest, { timeout: 15000, waitUntil: "domcontentloaded" });
           } else if (step.action === "click" && step.target) {
-            await page.locator(step.target).click();
+            const loc = page.locator(step.target).first();
+            await loc.click({ timeout: 10000 }).catch(async (err) => {
+              if (String(err).includes("intercepts pointer events") || String(err).includes("Timeout")) {
+                await loc.click({ force: true, timeout: 5000 }).catch(async () => {
+                  await loc.dispatchEvent("click");
+                });
+              } else {
+                throw err;
+              }
+            });
           } else if (step.action === "fill" && step.target) {
-            await page.locator(step.target).fill(step.data ?? "");
+            const loc = page.locator(step.target).first();
+            await loc.waitFor({ state: "visible", timeout: 10000 });
+            const tag = await loc.evaluate((el) => el.tagName.toLowerCase()).catch(() => null);
+            const typeAttr = await loc.getAttribute("type").catch(() => null);
+
+            if (tag === "select") {
+              await loc.selectOption({ index: 0 }).catch(async () => {
+                await loc.click({ force: true, timeout: 5000 });
+              });
+            } else if (typeAttr === "checkbox" || typeAttr === "radio") {
+              await loc.check({ force: true, timeout: 10000 }).catch(async () => {
+                await loc.click({ force: true, timeout: 10000 }).catch(async () => {
+                  await loc.dispatchEvent("click");
+                });
+              });
+            } else {
+              await loc.fill(step.data ?? "", { timeout: 10000 });
+            }
           } else if (step.action === "assertText" && step.target) {
-            const value = await page.locator(step.target).textContent();
+            const loc = page.locator(step.target).first();
+            await loc.waitFor({ state: "visible", timeout: 10000 });
+            const value = await loc.textContent();
             if (!(value ?? "").includes(step.data ?? "")) {
               throw new Error(`Expected ${step.target} to include "${step.data ?? ""}"`);
             }
           } else if (step.action === "assertVisible" && step.target) {
-            const visible = await page.locator(step.target).isVisible();
+            const loc = page.locator(step.target).first();
+            await loc.waitFor({ state: "visible", timeout: 10000 });
+            const visible = await loc.isVisible();
             if (!visible) {
               throw new Error(`Expected ${step.target} to be visible`);
             }
           }
 
-          run.stepEvents.push(this.makeStepEvent(testCase.id, step.id, "passed", step.expectedOutcome));
+          const passedEvt = this.makeStepEvent(testCase.id, step.id, "passed", step.expectedOutcome);
+          run.stepEvents.push(passedEvt);
+          await onStep?.(passedEvt, run);
         }
       }
 
@@ -159,21 +217,26 @@ export class PlaywrightLocalProvider extends BaseProvider {
       const tracePath = resolve(artifactDir, "trace.zip");
       await browserContext.tracing.stop({ path: tracePath });
       run.artifacts.push(
-        this.makeArtifact("log", "execution-log", logPath),
-        this.makeArtifact("screenshot", "final-state", screenshotPath),
-        this.makeArtifact("trace", "playwright-trace", tracePath)
+        this.makeArtifact("log", "execution-log", `/api/artifacts/${run.id}/execution.log`),
+        this.makeArtifact("screenshot", "final-state", `/api/artifacts/${run.id}/final.png`),
+        this.makeArtifact("trace", "playwright-trace", `/api/artifacts/${run.id}/trace.zip`)
       );
       run.status = "passed";
       run.finishedAt = new Date().toISOString();
       return run;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown Playwright execution error";
+      if (currentTestCaseId && currentStepId) {
+        const failedEvt = this.makeStepEvent(currentTestCaseId, currentStepId, "failed", message);
+        run.stepEvents.push(failedEvt);
+        await onStep?.(failedEvt, run);
+      }
       if (page) {
         const screenshotPath = resolve(artifactDir, "failure.png");
         await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => undefined);
-        run.artifacts.push(this.makeArtifact("screenshot", "failure-state", screenshotPath));
+        run.artifacts.push(this.makeArtifact("screenshot", "failure-state", `/api/artifacts/${run.id}/failure.png`));
       }
-      run.artifacts.push(this.makeArtifact("log", "execution-log", logPath));
+      run.artifacts.push(this.makeArtifact("log", "execution-log", `/api/artifacts/${run.id}/execution.log`));
       run.status = "healing-required";
       run.errorMessage = message;
       run.finishedAt = new Date().toISOString();
@@ -283,6 +346,80 @@ export class CustomAppiumProvider extends BaseProvider {
     return run;
   }
 }
+
+export class MaestroCloudExecutionProvider extends BaseProvider {
+  readonly name = "maestro-cloud" as const;
+
+  async execute(request: ExecutionRequest, context: ExecutionContext): Promise<ExecutionRun> {
+    const run = this.makeRun(request, context, "running");
+    const artifactDir = resolve(process.cwd(), "artifacts", run.id);
+    await mkdir(artifactDir, { recursive: true });
+    const flows = generateMaestroFlows({ appId: "com.sonofcotester.app", cases: context.testCases });
+    const hasCreds = Boolean(process.env.MAESTRO_API_KEY && process.env.MAESTRO_PROJECT_ID);
+
+    if (!hasCreds) {
+      run.status = "failed";
+      run.errorMessage = "Maestro Cloud credentials missing. Set MAESTRO_API_KEY and MAESTRO_PROJECT_ID.";
+      run.executionMetadata = {
+        provider: "maestro-cloud",
+        contractValidated: false,
+        missingConfiguration: ["MAESTRO_API_KEY", "MAESTRO_PROJECT_ID"]
+      };
+      run.stepEvents.push(
+        this.makeStepEvent(
+          context.testCases[0]?.id ?? "maestro-cloud",
+          "maestro-cloud-config",
+          "failed",
+          "Missing Maestro Cloud credentials for mobile execution."
+        )
+      );
+      run.finishedAt = new Date().toISOString();
+      return run;
+    }
+
+    const cloudProvider = new MaestroCloudProvider();
+    const result = await cloudProvider.execute(flows, {
+      uploadName: `run-${run.id}`,
+      timeoutSeconds: 300
+    });
+
+    run.status = result.passed ? "passed" : "failed";
+    run.externalSessionUrl = result.consoleUrl;
+    run.stepEvents.push(
+      this.makeStepEvent(
+        context.testCases[0]?.id ?? "maestro-cloud",
+        "maestro-cloud-run",
+        result.passed ? "passed" : "failed",
+        result.passed ? "All Maestro Cloud flows executed successfully." : "Maestro Cloud flow failed."
+      )
+    );
+    run.finishedAt = new Date().toISOString();
+    return run;
+  }
+}
+
+export { MaestroLocalProvider, getMaestroStatus } from "./maestro-provider.js";
+export { MaestroCloudProvider } from "./maestro-cloud-provider.js";
+export type { MaestroCloudConfig, MaestroCloudResult, CloudDeviceInfo } from "./maestro-cloud-provider.js";
+export {
+  generateMaestroFlows,
+  testCaseToFlow,
+  flowToYaml,
+  flowToFilename,
+} from "./maestro-flow-generator.js";
+export { AccessibilityScanner } from "./a11y-scanner.js";
+export { LoadTestRunner } from "./load-test-runner.js";
+export { AppInspectorService } from "./app-inspector.js";
+export type { DiscoveredElement, CrawlResult } from "./app-inspector.js";
+export {
+  BenchmarkEngine,
+  STACK_PROFILES,
+  DEFAULT_SERVER_SPECS,
+  DEFAULT_DATABASE_CONFIG,
+  DEFAULT_DATASET,
+  DEFAULT_WORKLOAD,
+  DEFAULT_THRESHOLDS
+} from "./benchmark-engine.js";
 
 export class ProviderRegistry {
   private readonly providers: Map<ProviderName, ExecutionProvider>;

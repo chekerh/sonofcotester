@@ -15,6 +15,10 @@ model Workspace {
   updatedAt   DateTime  @updatedAt
   projects    Project[]
   users       User[]
+  subscription Subscription?
+  invoices    Invoice[]
+  usageQuotas UsageQuota[]
+  auditLogs   AuditLog[]
 }
 
 model User {
@@ -29,15 +33,21 @@ model User {
 }
 
 model Project {
-  id            String         @id
-  workspaceId   String
-  name          String
-  description   String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  testSuites    TestSuite[]
-  executionRuns ExecutionRun[]
+  id                    String                  @id
+  workspaceId           String
+  name                  String
+  description           String
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  workspace             Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  testSuites            TestSuite[]
+  executionRuns         ExecutionRun[]
+  securityScans         SecurityScan[]
+  uiHealthSessions      UIHealthSession[]
+  dbHealthSnapshots     DBHealthSnapshot[]
+  performanceSnapshots  PerformanceSnapshot[]
+  healthAlerts          HealthAlert[]
+  healthTrendPoints     HealthTrendPoint[]
 }
 
 model TestSuite {
@@ -174,3 +184,294 @@ model IntegrationLink {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ── Security Scanning ──
+
+model SecurityScan {
+  id                        String   @id
+  projectId                 String
+  triggeredBy               String
+  status                    String
+  categories                Json
+  startedAt                 DateTime?
+  finishedAt                DateTime?
+  duration                  Int?
+  totalFilesScanned         Int      @default(0)
+  totalDependenciesAudited  Int      @default(0)
+  summary                   Json
+  metadata                  Json?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  vulnerabilities           SecurityVulnerability[]
+  project                   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model SecurityVulnerability {
+  id              String   @id
+  scanId          String
+  category        String
+  severity        String
+  title           String
+  description     String
+  file            String?
+  line            Int?
+  recommendation  String
+  cweId           String?
+  cvssScore       Float?
+  status          String   @default("open")
+  firstDetectedAt DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  scan            SecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+}
+
+// ── UI/UX Health ──
+
+model UIHealthSession {
+  id             String   @id
+  projectId      String
+  url            String
+  status         String
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  score          Json
+  pagesScanned   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  checks         UICheck[]
+  screenshots    UIScreenshot[]
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model UICheck {
+  id             String   @id
+  sessionId      String
+  type           String
+  severity       String
+  element        String?
+  selector       String?
+  page           String
+  description    String
+  screenshot     String?
+  wcagLevel      String?
+  impact         String?
+  recommendation String?
+  detectedAt     DateTime @default(now())
+  session        UIHealthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model UIScreenshot {
+  id           String   @id
+  sessionId    String
+  page         String
+  viewport     String
+  url          String
+  timestamp    DateTime @default(now())
+  diffPercent  Float?
+  baselineId  String?
+  session      UIHealthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ── Database Operations ──
+
+model DBHealthSnapshot {
+  id                 String   @id
+  projectId          String
+  connectionStatus   String
+  activeConnections  Int
+  maxConnections     Int
+  queryLatencyP50    Float
+  queryLatencyP95    Float
+  queryLatencyP99    Float
+  slowQueries        Int
+  deadlocks          Int
+  storageUsedBytes   BigInt
+  storageTotalBytes  BigInt
+  cacheHitRatio      Float
+  replicationLagMs   Float?
+  score              Float
+  recordedAt         DateTime @default(now())
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  metrics            DBMetric[]
+  warnings           DBWarning[]
+}
+
+model DBMetric {
+  id             String   @id
+  snapshotId     String
+  type           String
+  value          Float
+  unit           String
+  threshold      Float?
+  status         String
+  connectionName String?
+  database       String?
+  table          String?
+  query          String?
+  recordedAt     DateTime @default(now())
+  snapshot       DBHealthSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+}
+
+model DBWarning {
+  id             String   @id
+  snapshotId     String
+  type           String
+  message        String
+  severity       String
+  recommendation String
+  detectedAt     DateTime @default(now())
+  snapshot       DBHealthSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+}
+
+// ── Performance Metrics ──
+
+model PerformanceSnapshot {
+  id          String   @id
+  projectId   String
+  overall     Json
+  recordedAt  DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  services    ServicePerformance[]
+}
+
+model ServicePerformance {
+  id             String   @id
+  snapshotId     String
+  name           String
+  status         String
+  uptime         Float
+  responseTime   Json
+  throughput     Float
+  errorRate      Float
+  cpu            Float
+  memory         Json
+  gcPauses       Int
+  eventLoopLag   Float
+  recordedAt     DateTime @default(now())
+  snapshot       PerformanceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  metrics        PerformanceMetric[]
+}
+
+model PerformanceMetric {
+  id              String   @id
+  servicePerfId   String
+  type            String
+  value           Float
+  unit            String
+  tags            Json?
+  recordedAt      DateTime @default(now())
+  servicePerf     ServicePerformance @relation(fields: [servicePerfId], references: [id], onDelete: Cascade)
+}
+
+// ── Health Alerts & Trends ──
+
+model HealthAlert {
+  id          String   @id
+  projectId   String
+  dimension   String
+  severity    String
+  title       String
+  message     String
+  actionUrl   String?
+  acknowledged Boolean @default(false)
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model HealthTrendPoint {
+  id               String   @id
+  projectId        String
+  overallScore     Float
+  securityScore    Float
+  uiScore          Float
+  dbScore          Float
+  performanceScore Float
+  recordedAt       DateTime @default(now())
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ── Admin, Subscriptions & Audit Logs ──
+
+model Subscription {
+  id                  String    @id
+  workspaceId         String    @unique
+  tier                String    @default("student_free") // student_free, pro, team, enterprise
+  status              String    @default("active")       // active, trialing, past_due, canceled
+  currentPeriodStart  DateTime  @default(now())
+  currentPeriodEnd    DateTime
+  cancelAtPeriodEnd   Boolean   @default(false)
+  monthlyRunsLimit    Int       @default(100)
+  concurrentWorkers   Int       @default(1)
+  aiGenerationsLimit  Int       @default(10)
+  cloudMinutesLimit   Int       @default(0)
+  maxProjectsLimit    Int       @default(3)
+  teamMembersLimit    Int       @default(2)
+  paymentBrand        String?
+  paymentLast4        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id               String    @id
+  workspaceId      String
+  amountDue        Int
+  amountPaid       Int
+  currency         String    @default("usd")
+  status           String    @default("paid")
+  planName         String
+  periodStart      DateTime
+  periodEnd        DateTime
+  invoicePdfUrl    String?
+  hostedInvoiceUrl String?
+  createdAt        DateTime  @default(now())
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model UsageQuota {
+  id                 String    @id
+  workspaceId        String
+  period             String    // e.g. "2026-08"
+  runsExecuted       Int       @default(0)
+  aiGenerationsUsed  Int       @default(0)
+  cloudMinutesUsed   Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, period])
+}
+
+model AuditLog {
+  id          String    @id
+  workspaceId String
+  actorId     String
+  actorName   String
+  actorEmail  String
+  action      String
+  entityType  String
+  entityId    String
+  entityName  String?
+  details     Json?
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ── Student Academy Progress ──
+
+model StudentProgress {
+  id                 String    @id
+  userId             String    @unique
+  completedModules   Json      // string array
+  moduleQuizScores   Json      // key-value object { moduleId: score }
+  earnedBadges       Json      // badge array
+  totalTestsAnalyzed Int       @default(0)
+  averageQualityScore Float    @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+

@@ -3,10 +3,10 @@ dist
 .turbo
 .DS_Store
 .env
+.env.production.local
 .sonofcotester
 coverage
 playwright-report
 test-results
 artifacts
 graphify-out
-pnpm-lock.yaml

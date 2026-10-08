@@ -7,7 +7,18 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["build", "^build"],
+      "env": [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "PORT",
+        "DEMO_TARGET_PORT",
+        "VITE_API_URL",
+        "BROWSERSTACK_USERNAME",
+        "BROWSERSTACK_ACCESS_KEY",
+        "BROWSERSTACK_APP_ID"
+      ]
     },
     "lint": {},
     "test": {
@@ -16,4 +27,3 @@
     "format": {}
   }
 }
-

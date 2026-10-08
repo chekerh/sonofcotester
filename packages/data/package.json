@@ -17,7 +17,10 @@
     "test": "vitest run --passWithNoTests",
     "lint": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --check \"src/**/*.ts\"",
-    "prisma:generate": "prisma generate --schema prisma/schema.prisma"
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:push": "npx prisma db push --schema prisma/schema.prisma",
+    "db:studio": "npx prisma studio --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.7.0",
