@@ -1,0 +1,15 @@
+node_modules
+dist
+.turbo
+.DS_Store
+.env
+.env.production
+coverage
+playwright-report
+test-results
+artifacts
+graphify-out
+.git
+.github
+.freebuff
+*.log

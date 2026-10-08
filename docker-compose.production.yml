@@ -1,0 +1,119 @@
+# Production Docker Compose
+# Usage: docker compose -f docker-compose.production.yml up -d
+#
+# Environment variables (set in .env.production):
+#   DATABASE_URL, REDIS_URL, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
+#   JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, OPENAI_API_KEY,
+#   BROWSERSTACK_USERNAME, BROWSERSTACK_ACCESS_KEY
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sonofcotester}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-sonofcotester}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sonofcotester} -d ${POSTGRES_DB:-sonofcotester}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sonofcotester}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sonofcotester}?schema=public
+      REDIS_URL: redis://redis:6379
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      JIRA_BASE_URL: ${JIRA_BASE_URL}
+      JIRA_EMAIL: ${JIRA_EMAIL}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      BROWSERSTACK_USERNAME: ${BROWSERSTACK_USERNAME}
+      BROWSERSTACK_ACCESS_KEY: ${BROWSERSTACK_ACCESS_KEY}
+      MAESTRO_API_KEY: ${MAESTRO_API_KEY}
+      MAESTRO_PROJECT_ID: ${MAESTRO_PROJECT_ID}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - backend
+      - frontend
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - frontend
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sonofcotester}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sonofcotester}?schema=public
+      REDIS_URL: redis://redis:6379
+    command: ["node", "apps/worker/dist/main.js"]
+    networks:
+      - backend
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
