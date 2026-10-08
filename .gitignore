@@ -10,3 +10,6 @@ playwright-report
 test-results
 artifacts
 graphify-out
+dump.rdb
+.freebuff
+*.timestamp-*.mjs
