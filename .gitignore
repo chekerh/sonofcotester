@@ -13,3 +13,4 @@ graphify-out
 dump.rdb
 .freebuff
 *.timestamp-*.mjs
+.claude/
